@@ -1,0 +1,135 @@
+name: Self-Hosted iOS Build
+
+on:
+  push:
+    branches: [main, develop]
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-on-mac:
+    name: Build on Self-Hosted Mac
+    runs-on: [self-hosted, macOS, ios-builder]
+    timeout-minutes: 60
+    
+    steps:
+      - name: Cleanup workspace
+        run: |
+          echo "Cleaning up previous builds..."
+          rm -rf ${{ github.workspace }}/*
+          rm -rf ~/Library/Developer/Xcode/DerivedData/IronCommand-*
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup environment
+        run: |
+          echo "Node version: $(node -v)"
+          echo "NPM version: $(npm -v)"
+          echo "Xcode version: $(xcodebuild -version)"
+          echo "Ruby version: $(ruby -v)"
+
+      - name: Cache Node modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v3
+        with:
+          path: ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Run tests
+        run: npm test -- --ci --maxWorkers=4
+
+      - name: Build iOS (Debug)
+        if: github.ref != 'refs/heads/main'
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace IronCommand.xcworkspace \
+            -scheme IronCommand \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+            clean build \
+            | xcbeautify
+
+      - name: Build iOS (Release)
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: |
+          cd ios
+          
+          # Update build number
+          agvtool new-version -all ${{ github.run_number }}
+          
+          # Build and archive
+          xcodebuild \
+            -workspace IronCommand.xcworkspace \
+            -scheme IronCommand \
+            -configuration Release \
+            -sdk iphoneos \
+            -archivePath build/IronCommand.xcarchive \
+            clean archive \
+            | xcbeautify
+          
+          # Export IPA
+          xcodebuild \
+            -exportArchive \
+            -archivePath build/IronCommand.xcarchive \
+            -exportPath build/IPA \
+            -exportOptionsPlist ExportOptions.plist \
+            | xcbeautify
+
+      - name: Upload to TestFlight
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+        env:
+          FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD: ${{ secrets.FASTLANE_APPLE_APPLICATION_SPECIFIC_PASSWORD }}
+          FASTLANE_SESSION: ${{ secrets.FASTLANE_SESSION }}
+        run: |
+          cd ios
+          fastlane beta
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ios/build/IPA/IronCommand.ipa
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'iOS Build Failed!'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Cleanup build artifacts
+        if: always()
+        run: |
+          rm -rf ios/build
+          rm -rf ~/Library/Developer/Xcode/DerivedData/IronCommand-*

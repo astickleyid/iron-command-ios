@@ -1,0 +1,160 @@
+name: Release Management
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        default: 'false'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        uses: metcalfc/changelog-generator@v4.1.0
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          release_name: Iron Command v${{ steps.get_version.outputs.version }}
+          body: |
+            ## 🎮 Iron Command v${{ steps.get_version.outputs.version }}
+            
+            ### What's New
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### Installation
+            - Download the IPA file below
+            - Install via TestFlight or your preferred sideloading method
+            
+            ### System Requirements
+            - iOS 15.0 or later
+            - iPhone 12 or newer recommended for optimal performance
+            - 500MB free storage space
+            
+            ---
+            Built with ❤️ for tactical gaming enthusiasts
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
+
+  build-and-upload:
+    name: Build & Upload Release Assets
+    needs: create-release
+    runs-on: macos-14
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Update version
+        run: |
+          npm version ${{ needs.create-release.outputs.version }} --no-git-tag-version
+          cd ios
+          agvtool new-marketing-version ${{ needs.create-release.outputs.version }}
+
+      - name: Build Release IPA
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: |
+          cd ios
+          pod install
+          fastlane release
+
+      - name: Upload IPA to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./ios/build/IronCommand.ipa
+          asset_name: IronCommand-v${{ needs.create-release.outputs.version }}.ipa
+          asset_content_type: application/octet-stream
+
+      - name: Generate and upload dSYM
+        run: |
+          cd ios/build
+          zip -r IronCommand.dSYM.zip IronCommand.xcarchive/dSYMs
+        
+      - name: Upload dSYM to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./ios/build/IronCommand.dSYM.zip
+          asset_name: IronCommand-v${{ needs.create-release.outputs.version }}-dSYM.zip
+          asset_content_type: application/zip
+
+  notify:
+    name: Notify Release
+    needs: [create-release, build-and-upload]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🚀 Iron Command v${{ needs.create-release.outputs.version }} Released!",
+              attachments: [{
+                color: 'good',
+                text: 'New version available on TestFlight and GitHub Releases'
+              }]
+            }
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify Discord
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "Iron Command v${{ needs.create-release.outputs.version }} Released!"
+          description: "Download now from GitHub Releases or TestFlight"
+          color: 0x00ff00
