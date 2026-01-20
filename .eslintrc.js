@@ -20,7 +20,6 @@ module.exports = {
     browser: true,
     es2021: true,
     node: true,
-    'react-native/react-native': true,
   },
   settings: {
     react: {
@@ -38,6 +37,7 @@ module.exports = {
     'react/react-in-jsx-scope': 'off', // Not needed in React 18+
     'react/prop-types': 'off', // Using TypeScript
     'react/display-name': 'off',
+    'react/no-unknown-property': ['error', { ignore: ['args', 'rotation', 'position', 'receiveShadow', 'castShadow', 'roughness', 'metalness', 'intensity', 'shadow-mapSize', 'emissive', 'emissiveIntensity'] }],
     'react-hooks/rules-of-hooks': 'error',
     'react-hooks/exhaustive-deps': 'warn',
 

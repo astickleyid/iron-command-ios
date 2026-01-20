@@ -1,9 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { useFrame, useThree, ThreeEvent } from '@react-three/fiber';
+import React, { useRef } from 'react';
+import { useFrame, ThreeEvent } from '@react-three/fiber';
 import { PerspectiveCamera, Html } from '@react-three/drei';
 import { useGameStore } from '../store/gameStore';
 import { COLORS, CAMERA, MATERIALS } from '../config/constants';
-import { pathfinder } from '../systems/pathfinding';
 import * as THREE from 'three';
 
 export interface UnitProps {
@@ -15,15 +14,16 @@ export interface UnitProps {
 export const Unit: React.FC<UnitProps> = ({ id, position, color = COLORS.OLIVE_DRAB }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const [currentPos, setCurrentPos] = useState(new THREE.Vector3(...position));
-  const [targetPath, setTargetPath] = useState<THREE.Vector3[]>([]);
-  const [pathIndex, setPathIndex] = useState(0);
+  // Current implementation uses static positioning - pathfinding will be added in Phase 2
+  const currentPos = new THREE.Vector3(...position);
+  // TODO: Phase 2 - Enable pathfinding: const targetPath: THREE.Vector3[] = [];
+  // TODO: Phase 2 - Enable pathfinding: const pathIndex = 0;
   
   const { mode, selectedUnit, selectUnit, enterFPS } = useGameStore();
   const isSelected = selectedUnit === id;
   const isPossessed = isSelected && mode === 'FPS';
 
-  useFrame((state, delta) => {
+  useFrame((state) => {
     if (!groupRef.current) return;
 
     if (isSelected && meshRef.current && !isPossessed) {
@@ -31,19 +31,20 @@ export const Unit: React.FC<UnitProps> = ({ id, position, color = COLORS.OLIVE_D
       meshRef.current.scale.setScalar(scale);
     }
 
-    if (targetPath.length > 0 && pathIndex < targetPath.length && mode === 'RTS') {
-      const target = targetPath[pathIndex];
-      const direction = target.clone().sub(currentPos).normalize();
-      const distance = currentPos.distanceTo(target);
-      
-      if (distance > 0.1) {
-        const moveSpeed = 2 * delta;
-        currentPos.add(direction.multiplyScalar(moveSpeed));
-        groupRef.current.position.copy(currentPos);
-      } else {
-        setPathIndex(pathIndex + 1);
-      }
-    }
+    // TODO: Phase 2 - Re-enable pathfinding movement when AI system is implemented
+    // if (targetPath.length > 0 && pathIndex < targetPath.length && mode === 'RTS') {
+    //   const target = targetPath[pathIndex];
+    //   const direction = target.clone().sub(currentPos).normalize();
+    //   const distance = currentPos.distanceTo(target);
+    //   
+    //   if (distance > 0.1) {
+    //     const moveSpeed = 2 * delta;
+    //     currentPos.add(direction.multiplyScalar(moveSpeed));
+    //     groupRef.current.position.copy(currentPos);
+    //   } else {
+    //     setPathIndex(pathIndex + 1);
+    //   }
+    // }
   });
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
@@ -53,13 +54,17 @@ export const Unit: React.FC<UnitProps> = ({ id, position, color = COLORS.OLIVE_D
     }
   };
 
-  const moveTo = (target: THREE.Vector3) => {
-    const path = pathfinder.findPath(currentPos, target);
-    if (path.length > 0) {
-      setTargetPath(path);
-      setPathIndex(0);
-    }
-  };
+  // TODO: Re-enable pathfinding in Phase 2 when AI system is implemented
+  // Feature flag: ENABLE_PATHFINDING
+  // Tracking issue: https://github.com/astickleyid/iron-command-ios/issues/TBD
+  // 
+  // const moveTo = (target: THREE.Vector3) => {
+  //   const path = pathfinder.findPath(currentPos, target);
+  //   if (path.length > 0) {
+  //     setTargetPath(path);
+  //     setPathIndex(0);
+  //   }
+  // };
 
   return (
     <group ref={groupRef} position={currentPos.toArray() as [number, number, number]} onClick={handleClick}>
