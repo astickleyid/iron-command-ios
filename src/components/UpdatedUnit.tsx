@@ -1,9 +1,8 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { useFrame, useThree, ThreeEvent } from '@react-three/fiber';
+import React, { useRef, useState } from 'react';
+import { useFrame, ThreeEvent } from '@react-three/fiber';
 import { PerspectiveCamera, Html } from '@react-three/drei';
 import { useGameStore } from '../store/gameStore';
 import { COLORS, CAMERA, MATERIALS } from '../config/constants';
-import { pathfinder } from '../systems/pathfinding';
 import * as THREE from 'three';
 
 export interface UnitProps {
@@ -15,8 +14,8 @@ export interface UnitProps {
 export const Unit: React.FC<UnitProps> = ({ id, position, color = COLORS.OLIVE_DRAB }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const [currentPos, setCurrentPos] = useState(new THREE.Vector3(...position));
-  const [targetPath, setTargetPath] = useState<THREE.Vector3[]>([]);
+  const [currentPos] = useState(new THREE.Vector3(...position));
+  const [targetPath] = useState<THREE.Vector3[]>([]);
   const [pathIndex, setPathIndex] = useState(0);
   
   const { mode, selectedUnit, selectUnit, enterFPS } = useGameStore();
@@ -53,13 +52,14 @@ export const Unit: React.FC<UnitProps> = ({ id, position, color = COLORS.OLIVE_D
     }
   };
 
-  const moveTo = (target: THREE.Vector3) => {
-    const path = pathfinder.findPath(currentPos, target);
-    if (path.length > 0) {
-      setTargetPath(path);
-      setPathIndex(0);
-    }
-  };
+  // Pathfinding temporarily disabled - will be re-enabled with AI system
+  // const moveTo = (target: THREE.Vector3) => {
+  //   const path = pathfinder.findPath(currentPos, target);
+  //   if (path.length > 0) {
+  //     setTargetPath(path);
+  //     setPathIndex(0);
+  //   }
+  // };
 
   return (
     <group ref={groupRef} position={currentPos.toArray() as [number, number, number]} onClick={handleClick}>
