@@ -32,6 +32,7 @@
 node >= 18.x
 npm >= 9.x
 Xcode >= 15.0 (for iOS builds)
+CocoaPods (for iOS native dependencies)
 ```
 
 ### Installation
@@ -39,7 +40,12 @@ Xcode >= 15.0 (for iOS builds)
 git clone https://github.com/YOUR_USERNAME/iron-command-ios.git
 cd iron-command-ios
 npm install
+
+# Install iOS native dependencies
+cd ios && pod install && cd ..
 ```
+
+> 📝 **Note**: This repository includes the native iOS project. See [NATIVE_SETUP.md](./NATIVE_SETUP.md) for details.
 
 ### Development
 ```bash
