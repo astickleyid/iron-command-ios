@@ -9,7 +9,7 @@ describe('AStarPathfinder', () => {
   });
 
   describe('findPath', () => {
-    it('should find a direct path between adjacent nodes', () => {
+    it('should find a direct path along a straight line over multiple nodes', () => {
       const start = new Vector3(0, 0, 0);
       const goal = new Vector3(3, 0, 0);
       const path = pathfinder.findPath(start, goal);
