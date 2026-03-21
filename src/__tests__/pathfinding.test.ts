@@ -55,13 +55,8 @@ describe('AStarPathfinder', () => {
       const goal = new Vector3(5, 0, 5);
       const path = pathfinder.findPath(start, goal);
 
-      // Path should be empty or not reach goal
-      if (path.length > 0) {
-        const last = path[path.length - 1];
-        expect(last.x).not.toBe(5);
-      } else {
-        expect(path.length).toBe(0);
-      }
+      // With the goal fully blocked, pathfinder should return no path
+      expect(path.length).toBe(0);
     });
 
     it('should return a single-node path when start equals goal', () => {
