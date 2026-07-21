@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Canvas, useThree, useFrame, ThreeEvent } from '@react-three/fiber';
+import { Canvas, useFrame, ThreeEvent } from '@react-three/fiber';
 import { Sky, OrbitControls, PointerLockControls } from '@react-three/drei';
 import { View, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { useGameStore } from './store/gameStore';
@@ -8,7 +8,6 @@ import { useBuildingStore, BuildingType } from './store/buildingStore';
 import { Unit } from './components/UpdatedUnit';
 import { Building } from './components/Building';
 import { COLORS } from './config/constants';
-import * as THREE from 'three';
 
 const BUILDING_COSTS: Record<BuildingType, { credits: number; fuel: number }> = {
   'command-center': { credits: 1000, fuel: 0 },
@@ -50,7 +49,7 @@ const GameController: React.FC = () => {
 
 const ResourceProducer: React.FC = () => {
   const { buildings, getTotalPowerConsumption } = useBuildingStore();
-  const { addCredits, addFuel, addPower, setPowerConsumption, setPowerProduction } = useResourceStore();
+  const { addCredits, addFuel, setPowerConsumption, setPowerProduction } = useResourceStore();
   const lastUpdateRef = useRef(Date.now());
 
   useFrame(() => {
@@ -79,9 +78,8 @@ const ResourceProducer: React.FC = () => {
 };
 
 const TerrainClickHandler: React.FC = () => {
-  const { selectedBuildingType, addBuilding, selectBuildingType } = useBuildingStore();
+  const { selectedBuildingType, addBuilding } = useBuildingStore();
   const { consumeCredits, consumeFuel } = useResourceStore();
-  const { camera, raycaster } = useThree();
 
   const handleTerrainClick = (e: ThreeEvent<MouseEvent>) => {
     if (!selectedBuildingType) return;
@@ -115,7 +113,7 @@ const TerrainClickHandler: React.FC = () => {
 };
 
 const MobileUI: React.FC = () => {
-  const { credits, fuel, power, powerConsumption, powerProduction } = useResourceStore();
+  const { credits, fuel, powerConsumption, powerProduction } = useResourceStore();
   const { selectedBuildingType, selectBuildingType } = useBuildingStore();
   const [showBuildMenu, setShowBuildMenu] = useState(false);
 
